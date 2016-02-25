@@ -9,11 +9,11 @@ as well as Apache Mesos feel free to skip the next section and jump right into t
 
   Today is pretty common to find Engineers and Data Scientist that need to run _Big Data workloads_ inside a
 shared infrastructure. In addition the infrastructure could potentially be used not only for such workloads but
-to server other important services required for business operations. All these amalgamates to a none trivial infrastructure
+to for other important services required for business operations. All these amalgamates to a none trivial infrastructure
 and provisioning conundrum.
 
-  A very common way to solve such problem is to virtualize the infrastructure and statically partition it such that each group
-has its own resources to deploy and run their applications. Hopefully the maintainers of such infrastructure and services have a _DevOps_ mentality and
+  A very common way to solve such problem is to virtualize the infrastructure and statically partition it such that each development or business  group
+in the company has its own resources to deploy and run their applications on. Hopefully the maintainers of such infrastructure and services have a _DevOps_ mentality and
 have automated, and continuously work on automating, the configuration and software provisioning tasks on such infrastructure.
 The problem is, as [Benhamin Hindman][MESOS_WHY] backed by [studies][MESOS_WP] done at the University of California at Berkeley
 points out, static partitioning can be highly inefficient on the utilization of such infrastructure. This has prompted the development
@@ -24,11 +24,12 @@ to enable the execution of applications across the infrastructure to achieve a h
 algorithms that favor parallelization of workloads. Today the most common frameworks to develop such applications are _Hadoop Map Reduce_ and
 _Apache Spark_. In the case of _Apache Spark_ it can be deployed in clusters managed by _Resource Schedulers_ such as Hadoop YARN or Apache Mesos.
 Now, since different applications are running inside a shared infrastructure its common to find applications that have different sets of requirements
-across the packages and versions they depend on to function. As an operation engineer, or infrastructure manager, you could force your users to a predefine set of
-software libraries, along with their versions, that the infrastructure supports. Hopefully if you follow that path you also establish a procedure to
-upgrade such software libraries and add new ones. This tends to require an investment in time and might be frustrating to Engineers and Data Scientist that
-are constantly installing new packages and libraries to facilitate their work. When you decide to upgrade you might as well have to refactor some applications
-that might have been running for a long time but have hard dependencies on previous versions of the packages that are part of the upgraded. All in all, its not simple.
+across the software packages and versions of such packages they depend on to function.
+As an operation engineer, or infrastructure manager, you could force your users to a predefine set of software libraries, along with their versions,
+that the infrastructure supports. Hopefully if you follow that path you also establish a procedure to upgrade such software libraries and add new ones.
+This tends to require an investment in time and might be frustrating to Engineers and Data Scientist that are constantly installing new packages and
+libraries to facilitate their work. When you decide to upgrade you might as well have to refactor some applications that might have been running for
+a long time but have hard dependencies on previous versions of the packages that are part of the upgraded. All in all, its not simple.
 
   Linux Containers, and specially Docker, offer an abstraction such that software can be packaged into light weight images that can be executed as containers. The containers are executed with some level of isolation, such isolation is mainly provided by _cgroups_. Each image can define the type of operating system that it requires along with the software packages. This provides a
 fantastic mechanism to pass the burden of maintaining the software packages and libraries out of infrastructure management and operations to the owners of the applications.
@@ -212,7 +213,8 @@ location of the Mesos `libmesos.so`.
 
 
     export MESOS_NATIVE_JAVA_LIBRARY=${MESOS_NATIVE_JAVA_LIBRARY:-/usr/lib/libmesos.so}
-
+    export SPARK_LOCAL_IP=${SPARK_LOCAL_IP:-"127.0.0.1"}
+    export SPARK_PUBLIC_DNS=${SPARK_PUBLIC_DNS:-"127.0.0.1"}
 
 The `spark-conf/spark-defaults.conf` is serves as the definition of the default configuration for our
 Spark Jobs within the container, the contents are bellow.
@@ -247,6 +249,10 @@ will get passed to the Spark command, for example `spark-shell`, `spark-submit` 
     sed -i 's;MESOS_EXECUTOR_CORE;'$MESOS_EXECUTOR_CORE';g' /opt/spark/conf/spark-defaults.conf
     sed -i 's;SPARK_IMAGE;'$SPARK_IMAGE';g' /opt/spark/conf/spark-defaults.conf
     sed -i 's;CURRENT_IP;'$CURRENT_IP';g' /opt/spark/conf/spark-defaults.conf
+
+    export SPARK_LOCAL_IP=${SPARK_LOCAL_IP:-${CURRENT_IP:-"127.0.0.1"}}
+    export SPARK_PUBLIC_DNS=${SPARK_PUBLIC_DNS:-${CURRENT_IP:-"127.0.0.1"}}
+
 
     if [ $ADDITIONAL_VOLUMES ];
     then
@@ -284,7 +290,7 @@ To make sure that SciPy is working lets write the following to the PySpark shell
     x
 
 
-Now, depending on the resources available in your cluster you can try to calculate PI
+Now, lets try to calculate PI as an example .
 
     docker run -it --rm \
       -e SPARK_MASTER="mesos://zk://192.168.99.100:2181/mesos" \
@@ -292,20 +298,13 @@ Now, depending on the resources available in your cluster you can try to calcula
       -e PYSPARK_DRIVER_PYTHON=ipython2 \
       sparkmesos:latest /opt/spark/bin/spark-submit --driver-memory 500M \
                                                     --executor-memory 500M \
-                                                    /opt/spark/examples/src/main/python/pi.py 1
-
-docker run -it --rm \
-      -e SPARK_MASTER="mesos://zk://192.168.99.100:2181/mesos" \
-      -e SPARK_IMAGE="sparkmesos:latest" \
-      -e PYSPARK_DRIVER_PYTHON=ipython2 \
-      sparkmesos:latest /bin/bash 
+                                                    /opt/spark/examples/src/main/python/pi.py 10
 
 ## Conclusion and further Notes
 
-Although we were able to run a Spark Application within Docker containers in Mesos there is more work to do.
+  Although we were able to run a Spark Application within a Docker containers leveraging Apache Mesos there is more work to do.
 We need to explore containerized Spark Applications that spread across multiple nodes along with providing
 a mechanism that enables network port mapping.
-
 
 
 ## References
